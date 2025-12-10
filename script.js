@@ -190,6 +190,51 @@ class HeartItem {
     }
 }
 
+// Item Classes
+let items = []; // Holds Bombs and Clocks
+let itemTimer = 0;
+let itemInterval = 15; // Items appear every ~15 seconds
+
+class GameItem {
+    constructor(type) {
+        this.type = type; // 'BOMB' or 'CLOCK'
+        this.width = 40;
+        this.height = 40;
+        this.x = Math.random() * (canvas.width - this.width);
+        this.y = -this.height;
+        this.speed = 150;
+        this.vy = this.speed;
+    }
+
+    update(dt) {
+        this.y += this.vy * dt;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.font = '30px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        let emoji = '';
+        if (this.type === 'BOMB') emoji = '💣';
+        else if (this.type === 'CLOCK') emoji = '⌛';
+
+        ctx.fillText(emoji, this.x + this.width / 2, this.y + this.height / 2);
+
+        // Glow effect
+        ctx.strokeStyle = this.type === 'BOMB' ? 'orange' : 'cyan';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(this.x, this.y, this.width, this.height);
+
+        ctx.restore();
+    }
+}
+
+// Global Effect Variables
+// let timeScale = 1.0; // Removed permanent slow logic
+// let slowMotionTimer = 0;
+
 // Warning Indicator for Red Poops
 let warnings = [];
 
@@ -374,6 +419,7 @@ function checkCollision(rect1, rect2) {
 
 // Game Loop
 function update(timestamp) {
+    if (!lastTime) lastTime = timestamp; // Safety check
     const dt = (timestamp - lastTime) / 1000;
     lastTime = timestamp;
 
@@ -400,9 +446,8 @@ function update(timestamp) {
         if (poopTimer > poopInterval) {
             poopTimer = 0;
 
-            // Check for Red Poop Chance First (30% for testing)
-            if (Math.random() < 0.3) {
-                console.log("Spawning Red Poop Warning!");
+            // Check for Red Poop Chance First (5% chance)
+            if (Math.random() < 0.05) {
                 // Determine spawn position specifically for warning
                 const side = Math.floor(Math.random() * 4);
                 let wx, wy;
@@ -413,10 +458,14 @@ function update(timestamp) {
                 else if (side === 2) { wx = Math.random() * canvas.width; wy = canvas.height; }
                 else { wx = -size; wy = Math.random() * canvas.height; }
 
+                // Capture player position NOW (for targeting)
+                const targetX = player.x + player.width / 2;
+                const targetY = player.y + player.height / 2;
+
                 // Create Warning Instead
                 warnings.push(new WarningIndicator(wx, wy, () => {
-                    // Spawn actual red poop at this location when done
-                    poops.push(new Poop(true, wx, wy));
+                    // Spawn actual red poop at this location when done, targeting the SNAPSHOTTED position
+                    poops.push(new Poop(true, wx, wy, targetX, targetY));
                 }));
             } else {
                 // Regular Poop
@@ -444,19 +493,65 @@ function update(timestamp) {
             heart.draw();
 
             if (checkCollision(player, heart)) {
-                if (lives < 3) {
-                    lives++;
-                    updateLivesUI();
-                }
+                lives++;
+                updateLivesUI();
                 hearts.splice(i, 1);
             } else if (heart.y > canvas.height) {
                 hearts.splice(i, 1);
             }
         }
 
+        // Spawn Items (Bomb/Clock)
+        itemTimer += dt;
+        if (itemTimer > itemInterval) {
+            itemTimer = 0;
+            // Randomly choose Bomb or Clock
+            const type = Math.random() < 0.5 ? 'BOMB' : 'CLOCK';
+            items.push(new GameItem(type));
+            // Randomize interval (More frequent: 5 to 15 seconds)
+            itemInterval = 5 + Math.random() * 10;
+        }
+
+        // Update & Draw Items
+        for (let i = items.length - 1; i >= 0; i--) {
+            const item = items[i];
+            item.update(dt);
+            item.draw();
+
+            if (checkCollision(player, item)) {
+                if (item.type === 'BOMB') {
+                    // Bomb Effect: Clear all poops
+                    const poopCount = poops.length;
+                    score += poopCount * 5; // Bonus score
+                    scoreElement.innerText = score;
+                    poops = []; // Nuke them
+                    // Visual feedback
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                } else if (item.type === 'CLOCK') {
+                    // Clock Effect: PERMANENTLY Slow down game by 50%
+                    difficultyMultiplier *= 0.5;
+                    // Slow down existing poops
+                    poops.forEach(p => {
+                        p.vx *= 0.5;
+                        p.vy *= 0.5;
+                        p.speed *= 0.5;
+                    });
+
+                    // Visual feedback (Flash cyan)
+                    gameContainer.style.border = "5px solid cyan";
+                    setTimeout(() => gameContainer.style.border = "none", 500);
+                }
+                items.splice(i, 1);
+            } else if (item.y > canvas.height) {
+                items.splice(i, 1);
+            }
+        }
+
         // Update & Draw Poops
         for (let i = poops.length - 1; i >= 0; i--) {
             const poop = poops[i];
+            // No timeScale variable anymore, direct update
             poop.update(dt);
             poop.draw();
 
@@ -502,11 +597,14 @@ function update(timestamp) {
 }
 
 function startGame() {
+    startBtn.blur(); // Remove focus from button to ensure keyboard works
     gameState = 'PLAYING';
     score = 0;
     poops = [];
     hearts = [];
     warnings = [];
+    items = [];
+    timeScale = 1.0;
     difficultyMultiplier = 1.1;
     poopInterval = 0.45;
     lives = 3;
@@ -528,6 +626,7 @@ function startGame() {
     gameOverScreen.classList.remove('active');
 
     // Reset player position
+    resizeCanvas(); // Ensure canvas size is correct
     player.x = canvas.width / 2 - player.width / 2;
     player.y = canvas.height / 2 - player.height / 2;
 
