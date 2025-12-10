@@ -50,6 +50,9 @@ const livesDisplayElement = document.getElementById('lives-display');
 const heartImage = new Image();
 heartImage.src = 'heart.png';
 
+const goldImage = new Image();
+goldImage.src = 'gold_item.png';
+
 // High Score Elements
 const nameInput = document.getElementById('player-name');
 const saveScoreBtn = document.getElementById('save-score-btn');
@@ -59,9 +62,9 @@ const nameInputContainer = document.getElementById('name-input-container');
 function updateLivesUI() {
     livesDisplayElement.innerHTML = '';
     for (let i = 0; i < lives; i++) {
-        const heart = document.createElement('img');
-        heart.src = 'heart.png'; // User uploaded image
-        heart.className = 'life-icon';
+        const heart = document.createElement('span');
+        heart.innerText = '❤️';
+        heart.style.fontSize = '30px';
         livesDisplayElement.appendChild(heart);
     }
 }
@@ -199,30 +202,50 @@ class HeartItem {
     constructor() {
         this.width = 40;
         this.height = 40;
-        this.x = Math.random() * (canvas.width - this.width);
-        this.y = -this.height;
-        this.speed = 150; // Slowly falling
-        this.vy = this.speed;
+        this.speed = 150;
+
+        // Random Side Spawning
+        const side = Math.floor(Math.random() * 4);
+        if (side === 0) { // Top
+            this.x = Math.random() * (canvas.width - this.width);
+            this.y = -this.height;
+        } else if (side === 1) { // Right
+            this.x = canvas.width;
+            this.y = Math.random() * (canvas.height - this.height);
+        } else if (side === 2) { // Bottom
+            this.x = Math.random() * (canvas.width - this.width);
+            this.y = canvas.height;
+        } else { // Left
+            this.x = -this.width;
+            this.y = Math.random() * (canvas.height - this.height);
+        }
+
+        // Target: Central Area
+        const targetX = Math.random() * (canvas.width * 0.6) + (canvas.width * 0.2);
+        const targetY = Math.random() * (canvas.height * 0.6) + (canvas.height * 0.2);
+
+        // Velocity
+        const angle = Math.atan2(targetY - this.y, targetX - this.x);
+        this.vx = Math.cos(angle) * this.speed;
+        this.vy = Math.sin(angle) * this.speed;
     }
 
     update(dt) {
+        this.x += this.vx * dt;
         this.y += this.vy * dt;
     }
 
     draw() {
         ctx.save();
-        // Circular clip for the heart item
-        ctx.beginPath();
-        ctx.arc(this.x + this.width / 2, this.y + this.height / 2, this.width / 2, 0, Math.PI * 2);
-        ctx.closePath();
-        ctx.clip();
+        ctx.font = '30px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
 
-        ctx.drawImage(heartImage, this.x, this.y, this.width, this.height);
+        ctx.fillText('❤️', this.x + this.width / 2, this.y + this.height / 2);
 
-        // Optional border to make it pop
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#ff69b4';
-        ctx.stroke();
+        // Optional border/glow
+        ctx.shadowColor = '#ff69b4';
+        ctx.shadowBlur = 10;
         ctx.restore();
     }
 }
@@ -282,19 +305,47 @@ class GameItem {
         if (this.type === 'BOMB') emoji = '💣';
         else if (this.type === 'CLOCK') emoji = '⌛';
         else if (this.type === 'SHIELD') emoji = '🛡️';
+        else if (this.type === 'GOLD') emoji = '�';
 
-        ctx.fillText(emoji, this.x + this.width / 2, this.y + this.height / 2);
+        if (this.type === 'GOLD') {
+            // Draw Heart Image for Gold Item as requested
+            ctx.save();
+            // Custom Glow for Gold
+            ctx.shadowColor = '#FFD700'; // Gold
+            ctx.shadowBlur = 30;
 
-        // Glow effect
+            // Draw Image
+            ctx.drawImage(heartImage, this.x, this.y, this.width, this.height);
+            ctx.restore();
+        } else {
+            // Draw Emoji for others
+            ctx.fillText(emoji, this.x + this.width / 2, this.y + this.height / 2);
+        }
+
+        // Reset Shadow
+        ctx.shadowBlur = 0;
+
+        // Glow effect (Rect Border)
         if (this.type === 'BOMB') ctx.strokeStyle = 'orange';
         else if (this.type === 'CLOCK') ctx.strokeStyle = 'cyan';
         else if (this.type === 'SHIELD') ctx.strokeStyle = 'dodgerblue';
+        else if (this.type === 'GOLD') ctx.strokeStyle = '#FFD700';
 
         ctx.lineWidth = 2;
         // ctx.strokeRect(this.x, this.y, this.width, this.height); // Removed border as requested before
 
         ctx.restore();
     }
+}
+
+// Game Timer
+let gameTime = 0;
+const timeDisplayElement = document.getElementById('time-display');
+
+function formatTime(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
 // Global Effect Variables
@@ -381,7 +432,7 @@ class Poop {
         this.height = size;
 
         // Speed varies more wildly now, multiplied by difficulty
-        const baseSpeed = 200 + Math.random() * 200;
+        const baseSpeed = 170 + Math.random() * 170;
         this.speed = baseSpeed * difficultyMultiplier;
         this.color = '#8b4513';
 
@@ -570,6 +621,10 @@ function update(timestamp) {
     lastTime = timestamp;
 
     if (gameState === 'PLAYING') {
+        // Update Game Timer
+        gameTime += dt;
+        timeDisplayElement.innerText = formatTime(gameTime);
+
         // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -619,9 +674,9 @@ function update(timestamp) {
             }
 
             // Increase difficulty
-            difficultyMultiplier += 0.005;
+            difficultyMultiplier += 0.003; // Tuned up from 0.002
             // Cap interval at a minimum to prevent unplayable state
-            if (poopInterval > 0.1) poopInterval -= 0.002;
+            if (poopInterval > 0.1) poopInterval -= 0.001;
         }
 
         // Spawn Hearts
@@ -642,20 +697,26 @@ function update(timestamp) {
                 lives++;
                 updateLivesUI();
                 hearts.splice(i, 1);
-            } else if (heart.y > canvas.height) {
+            } else if (
+                heart.y > canvas.height + 50 || heart.y < -50 ||
+                heart.x > canvas.width + 50 || heart.x < -50
+            ) {
                 hearts.splice(i, 1);
             }
         }
 
-        // Spawn Items (Bomb/Clock/Shield)
+        // Spawn Items (Bomb/Clock/Shield/Gold)
         itemTimer += dt;
         if (itemTimer > itemInterval) {
             itemTimer = 0;
-            // Randomly choose Bomb, Clock, or Shield
+            // Randomly choose Item
             const rand = Math.random();
             let type = 'BOMB';
-            if (rand < 0.33) type = 'BOMB';
-            else if (rand < 0.66) type = 'CLOCK';
+
+            // 10% Gold, 30% others
+            if (rand < 0.1) type = 'GOLD';
+            else if (rand < 0.4) type = 'BOMB';
+            else if (rand < 0.7) type = 'CLOCK';
             else type = 'SHIELD';
 
             items.push(new GameItem(type));
@@ -671,31 +732,44 @@ function update(timestamp) {
 
             if (checkCollision(player, item)) {
                 if (item.type === 'BOMB') {
-                    // Bomb Effect: Clear all poops
+                    // Bomb Effect
                     const poopCount = poops.length;
-                    score += poopCount * 5; // Bonus score
+                    score += poopCount * 5;
                     scoreElement.innerText = score;
-                    poops = []; // Nuke them
-                    // Visual feedback
+                    poops = [];
                     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                 } else if (item.type === 'CLOCK') {
-                    // Clock Effect: PERMANENTLY Slow down game by 50%
+                    // Clock Effect
                     difficultyMultiplier *= 0.5;
-                    // Slow down existing poops
                     poops.forEach(p => {
                         p.vx *= 0.5;
                         p.vy *= 0.5;
                         p.speed *= 0.5;
                     });
-
-                    // Visual feedback (Flash cyan)
                     gameContainer.style.border = "5px solid cyan";
                     setTimeout(() => gameContainer.style.border = "none", 500);
                 } else if (item.type === 'SHIELD') {
-                    // Shield Effect: Invincibility for 3 seconds
+                    // Shield Effect
                     player.isShielded = true;
                     player.shieldDuration = 3.0;
+                } else if (item.type === 'GOLD') {
+                    // Gold Poop Effect
+                    score += 100;
+                    scoreElement.innerText = score;
+                    // Visual feedback (Gold text)
+                    const floatingText = document.createElement('div');
+                    floatingText.innerText = "+100";
+                    floatingText.style.position = 'absolute';
+                    floatingText.style.left = canvas.offsetLeft + item.x + 'px';
+                    floatingText.style.top = canvas.offsetTop + item.y + 'px';
+                    floatingText.style.color = 'gold';
+                    floatingText.style.fontWeight = 'bold';
+                    floatingText.style.fontSize = '30px';
+                    floatingText.style.pointerEvents = 'none';
+                    floatingText.style.animation = 'floatUp 1s ease-out';
+                    document.body.appendChild(floatingText);
+                    setTimeout(() => floatingText.remove(), 1000);
                 }
                 items.splice(i, 1);
             } else if (
@@ -763,8 +837,8 @@ function startGame() {
     warnings = [];
     items = [];
     timeScale = 1.0;
-    difficultyMultiplier = 1.1;
-    poopInterval = 0.45;
+    difficultyMultiplier = 1.05; // Slightly harder (was 1.0)
+    poopInterval = 0.55; // Slightly faster (was 0.6)
     lives = 3;
     heartTimer = 0;
     heartInterval = 20;
@@ -772,6 +846,8 @@ function startGame() {
     // Reset Background
     gameContainer.style.filter = 'none';
     scoreTimer = 0;
+    gameTime = 0;
+    timeDisplayElement.innerText = "00:00";
 
     updateLivesUI();
     scoreElement.innerText = score;
@@ -796,6 +872,7 @@ function endGame() {
     gameState = 'GAMEOVER';
     cancelAnimationFrame(animationId);
     finalScoreElement.innerText = score;
+    document.getElementById('final-time').innerText = formatTime(gameTime);
     gameOverScreen.classList.add('active');
 
     // Show input logic
@@ -841,9 +918,9 @@ function renderLeaderboard(localData = null) {
     highScoreList.innerHTML = '';
 
     if (localData) {
-        localData.forEach(scoreData => {
+        localData.forEach((scoreData, index) => {
             const li = document.createElement('li');
-            li.innerHTML = `<span>${scoreData.name}</span> <span>${scoreData.score}</span>`;
+            li.innerHTML = `<span>${index + 1}. ${scoreData.name}</span> <span>${scoreData.score}</span>`;
             highScoreList.appendChild(li);
         });
         return;
@@ -860,18 +937,18 @@ function renderLeaderboard(localData = null) {
             scores.reverse();
 
             highScoreList.innerHTML = '';
-            scores.forEach(scoreData => {
+            scores.forEach((scoreData, index) => {
                 const li = document.createElement('li');
-                li.innerHTML = `<span>${scoreData.name}</span> <span>${scoreData.score}</span>`;
+                li.innerHTML = `<span>${index + 1}. ${scoreData.name}</span> <span>${scoreData.score}</span>`;
                 highScoreList.appendChild(li);
             });
         });
     } catch (e) {
         // Fallback
         const highScores = getHighScores();
-        highScores.forEach(scoreData => {
+        highScores.forEach((scoreData, index) => {
             const li = document.createElement('li');
-            li.innerHTML = `<span>${scoreData.name}</span> <span>${scoreData.score}</span>`;
+            li.innerHTML = `<span>${index + 1}. ${scoreData.name}</span> <span>${scoreData.score}</span>`;
             highScoreList.appendChild(li);
         });
     }

@@ -14,6 +14,7 @@
         <canvas id="gameCanvas"></canvas>
         <div id="ui-layer">
             <div id="score-board">Score: <span id="score">0</span></div>
+            <div id="time-display">00:00</div>
 
             <div id="lives-display"></div>
             <div id="boost-status">BOOST: READY (Shift)</div>
@@ -25,6 +26,7 @@
             <div id="game-over-screen" class="screen">
                 <h1>GAME OVER</h1>
                 <p>최종 점수: <span id="final-score">0</span></p>
+                <p>버틴 시간: <span id="final-time">00:00</span></p>
                 <div id="name-input-container">
                     <input type="text" id="player-name" placeholder="이름 (최대 5글자)" maxlength="5">
                     <button id="save-score-btn">기록 저장</button>
