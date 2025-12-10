@@ -1,0 +1,230 @@
+:root {
+    --bg-color: #1a1a2e;
+    --accent-color: #e94560;
+    --text-color: #ffffff;
+    --ui-bg: rgba(255, 255, 255, 0.1);
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Jua', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.game-container {
+    position: relative;
+    width: 100%;
+    max-width: 600px;
+    height: 80vh;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    border-radius: 10px;
+    overflow: hidden;
+    background: url('sky_bg.png') no-repeat center center;
+    background-size: cover;
+}
+
+canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    /* Let clicks pass through to canvas if needed, but buttons need pointer-events auto */
+}
+
+#score-board {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 24px;
+    background: var(--ui-bg);
+    padding: 5px 15px;
+    border-radius: 20px;
+    backdrop-filter: blur(5px);
+}
+
+.screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.screen.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+h1 {
+    font-size: 48px;
+    margin-bottom: 20px;
+    color: #ffd700;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+p {
+    font-size: 24px;
+    margin-bottom: 40px;
+}
+
+button {
+    font-family: 'Jua', sans-serif;
+    font-size: 24px;
+    padding: 10px 40px;
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: transform 0.1s, background-color 0.2s;
+    box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+}
+
+button:hover {
+    background-color: #ff2e4d;
+    transform: scale(1.05);
+}
+
+button:active {
+    transform: scale(0.95);
+}
+
+#boost-status {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 20px;
+    background: var(--ui-bg);
+    padding: 5px 15px;
+    border-radius: 20px;
+    backdrop-filter: blur(5px);
+    color: #00ff00;
+    /* Ready color */
+    font-weight: bold;
+}
+
+#boost-status.cooldown {
+    color: #ff4444;
+}
+
+#boost-status.active {
+    color: #ffff00;
+    box-shadow: 0 0 10px #ffff00;
+}
+
+#lives-display {
+    position: absolute;
+    top: 50px;
+    left: 10px;
+    display: flex;
+    gap: 5px;
+}
+
+.life-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #ff69b4;
+    background-color: white;
+    box-shadow: 0 0 5px rgba(255, 105, 180, 0.5);
+}
+
+.hit {
+    animation: flash 0.2s infinite;
+}
+
+@keyframes flash {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+.game-container {
+    transition: background-image 1s ease-in-out, filter 1s ease-in-out;
+}
+
+.game-container.pink-mode {
+    background-image: url('pink_sky_bg.png') !important;
+}
+
+#name-input-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    justify-content: center;
+}
+
+#player-name {
+    padding: 10px;
+    font-size: 18px;
+    border-radius: 10px;
+    border: none;
+    text-align: center;
+    font-family: 'Jua', sans-serif;
+}
+
+#high-scores {
+    background: rgba(0, 0, 0, 0.5);
+    padding: 20px;
+    border-radius: 15px;
+    width: 80%;
+    max-width: 300px;
+    text-align: center;
+}
+
+#high-scores h3 {
+    margin: 0 0 15px 0;
+    color: #ffd700;
+}
+
+#high-score-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#high-score-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    font-size: 18px;
+}
+
+#save-score-btn {
+    padding: 10px 20px;
+    font-size: 18px;
+}
