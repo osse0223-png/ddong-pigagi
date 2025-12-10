@@ -81,6 +81,7 @@ const player = {
     boostCooldown: 10000, // 10 seconds
     color: '#00d4ff',
     isInvulnerable: false,
+    invulnerabilityDuration: 1000, // 1 second
     isShielded: false,
     shieldDuration: 0,
 
@@ -233,16 +234,41 @@ let itemInterval = 15; // Items appear every ~15 seconds
 
 class GameItem {
     constructor(type) {
-        this.type = type; // 'BOMB' or 'CLOCK'
+        this.type = type; // 'BOMB' or 'CLOCK' or 'SHIELD'
         this.width = 40;
         this.height = 40;
-        this.x = Math.random() * (canvas.width - this.width);
-        this.y = -this.height;
         this.speed = 150;
-        this.vy = this.speed;
+
+        // Random Side Spawning (0: Top, 1: Right, 2: Bottom, 3: Left)
+        const side = Math.floor(Math.random() * 4);
+
+        if (side === 0) { // Top
+            this.x = Math.random() * (canvas.width - this.width);
+            this.y = -this.height;
+        } else if (side === 1) { // Right
+            this.x = canvas.width;
+            this.y = Math.random() * (canvas.height - this.height);
+        } else if (side === 2) { // Bottom
+            this.x = Math.random() * (canvas.width - this.width);
+            this.y = canvas.height;
+        } else { // Left
+            this.x = -this.width;
+            this.y = Math.random() * (canvas.height - this.height);
+        }
+
+        // Calculate Target Point (Pass through the screen)
+        // Pick a random target on the OTHER side or central area to ensure it crosses the play area
+        const targetX = Math.random() * (canvas.width * 0.6) + (canvas.width * 0.2); // Central 60%
+        const targetY = Math.random() * (canvas.height * 0.6) + (canvas.height * 0.2); // Central 60%
+
+        // Calculate Angle and Velocity
+        const angle = Math.atan2(targetY - this.y, targetX - this.x);
+        this.vx = Math.cos(angle) * this.speed;
+        this.vy = Math.sin(angle) * this.speed;
     }
 
     update(dt) {
+        this.x += this.vx * dt;
         this.y += this.vy * dt;
     }
 
@@ -279,9 +305,11 @@ class GameItem {
 let warnings = [];
 
 class WarningIndicator {
-    constructor(x, y, onComplete) {
+    constructor(x, y, targetX, targetY, onComplete) {
         this.x = x;
         this.y = y;
+        this.targetX = targetX;
+        this.targetY = targetY;
         this.duration = 1.0; // 1 second warning
         this.timer = 0;
         this.onComplete = onComplete;
@@ -308,6 +336,17 @@ class WarningIndicator {
         if (!this.visible) return;
 
         ctx.save();
+
+        // Draw Trajectory Line (Red Dashed)
+        ctx.beginPath();
+        ctx.setLineDash([10, 10]);
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.targetX, this.targetY);
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset line dash for other drawings
+
         ctx.font = '30px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -335,7 +374,7 @@ let poopTimer = 0;
 let poopInterval = 0.45; // Slightly easier start
 
 class Poop {
-    constructor(isRed = false, startX, startY) {
+    constructor(isRed = false, startX, startY, targetXOverride, targetYOverride) {
         // Variable Size (20px to 60px)
         const size = 20 + Math.random() * 40;
         this.width = size;
@@ -379,8 +418,8 @@ class Poop {
 
         if (this.isRed) {
             // Target the player directly!
-            targetX = player.x + player.width / 2;
-            targetY = player.y + player.height / 2;
+            targetX = targetXOverride !== undefined ? targetXOverride : player.x + player.width / 2;
+            targetY = targetYOverride !== undefined ? targetYOverride : player.y + player.height / 2;
         } else {
             // Random point in central area
             targetX = Math.random() * (canvas.width * 0.8) + (canvas.width * 0.1);
@@ -436,6 +475,53 @@ window.addEventListener('keyup', e => {
     if (e.key === 'Shift') {
         player.deactivateBoost();
     }
+});
+
+// Touch Handling for Mobile
+let lastTouchEnd = 0;
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const touchX = touch.clientX - rect.left;
+    const touchY = touch.clientY - rect.top;
+
+    // Move player to touch position immediately
+    player.x = touchX - player.width / 2;
+    player.y = touchY - player.height / 2;
+
+    // Double Tap for Boost
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) {
+        player.activateBoost();
+        // Auto-release boost after 1s matches desktop logic, 
+        // but for mobile maybe we want it to stop when finger lifts? 
+        // Let's keep it simple: Activation is instant. Deactivation happens naturally via timer or we can add touchend logic.
+    }
+    lastTouchEnd = now;
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault(); // Prevent scrolling
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const touchX = touch.clientX - rect.left;
+    const touchY = touch.clientY - rect.top;
+
+    // Direct 1:1 Movement
+    player.x = touchX - player.width / 2;
+    player.y = touchY - player.height / 2;
+
+    // Clamp
+    if (player.x < 0) player.x = 0;
+    if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+    if (player.y < 0) player.y = 0;
+    if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+    // If we want boost to stop on lift, we can call deactivateBoost here
+    player.deactivateBoost();
 });
 
 // Collision Detection
@@ -508,7 +594,7 @@ function update(timestamp) {
                 const targetY = player.y + player.height / 2;
 
                 // Create Warning Instead
-                warnings.push(new WarningIndicator(wx, wy, () => {
+                warnings.push(new WarningIndicator(wx, wy, targetX, targetY, () => {
                     // Spawn actual red poop at this location when done, targeting the SNAPSHOTTED position
                     poops.push(new Poop(true, wx, wy, targetX, targetY));
                 }));
@@ -597,7 +683,10 @@ function update(timestamp) {
                     player.shieldDuration = 3.0;
                 }
                 items.splice(i, 1);
-            } else if (item.y > canvas.height) {
+            } else if (
+                item.y > canvas.height + 50 || item.y < -50 ||
+                item.x > canvas.width + 50 || item.x < -50
+            ) {
                 items.splice(i, 1);
             }
         }
