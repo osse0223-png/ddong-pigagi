@@ -96,6 +96,8 @@ const player = {
         return true; // Damage taken
     },
 
+    boostTimer: null,
+
     activateBoost() {
         if (this.canBoost && !this.isBoosting) {
             this.isBoosting = true;
@@ -104,21 +106,31 @@ const player = {
             boostStatusElement.innerText = "BOOST: ACTIVE!";
             boostStatusElement.className = "active";
 
-            // End Boost after duration
-            setTimeout(() => {
-                this.isBoosting = false;
-                this.speed = this.normalSpeed;
-                boostStatusElement.innerText = "BOOST: COOLDOWN";
-                boostStatusElement.className = "cooldown";
-
-                // End Cooldown
-                setTimeout(() => {
-                    this.canBoost = true;
-                    boostStatusElement.innerText = "BOOST: READY (Shift)";
-                    boostStatusElement.className = "";
-                }, this.boostCooldown);
+            // Auto-stop after duration if not released earlier
+            this.boostTimer = setTimeout(() => {
+                this.deactivateBoost();
             }, this.boostDuration);
         }
+    },
+
+    deactivateBoost() {
+        if (!this.isBoosting) return; // Already stopped
+
+        // Cancel the auto-stop timer if this was a manual release
+        if (this.boostTimer) clearTimeout(this.boostTimer);
+        this.boostTimer = null;
+
+        this.isBoosting = false;
+        this.speed = this.normalSpeed;
+        boostStatusElement.innerText = "BOOST: COOLDOWN";
+        boostStatusElement.className = "cooldown";
+
+        // Start Cooldown
+        setTimeout(() => {
+            this.canBoost = true;
+            boostStatusElement.innerText = "BOOST: READY (Shift)";
+            boostStatusElement.className = "";
+        }, this.boostCooldown);
     },
 
     update(dt) {
@@ -419,6 +431,11 @@ window.addEventListener('keydown', e => {
 
 window.addEventListener('keyup', e => {
     if (keys.hasOwnProperty(e.code)) keys[e.code] = false;
+
+    // Stop Boost on Release
+    if (e.key === 'Shift') {
+        player.deactivateBoost();
+    }
 });
 
 // Collision Detection
