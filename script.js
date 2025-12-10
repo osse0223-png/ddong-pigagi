@@ -426,13 +426,13 @@ let poopInterval = 0.45; // Slightly easier start
 
 class Poop {
     constructor(isRed = false, startX, startY, targetXOverride, targetYOverride) {
-        // Variable Size (20px to 60px)
-        const size = 20 + Math.random() * 40;
+        // Variable Size (15px to 45px) - Reduced size
+        const size = 15 + Math.random() * 30;
         this.width = size;
         this.height = size;
 
         // Speed varies more wildly now, multiplied by difficulty
-        const baseSpeed = 170 + Math.random() * 170;
+        const baseSpeed = 190 + Math.random() * 190;
         this.speed = baseSpeed * difficultyMultiplier;
         this.color = '#8b4513';
 
@@ -674,7 +674,7 @@ function update(timestamp) {
             }
 
             // Increase difficulty
-            difficultyMultiplier += 0.003; // Tuned up from 0.002
+            difficultyMultiplier += 0.004; // Slightly harder increase
             // Cap interval at a minimum to prevent unplayable state
             if (poopInterval > 0.1) poopInterval -= 0.001;
         }
@@ -837,8 +837,8 @@ function startGame() {
     warnings = [];
     items = [];
     timeScale = 1.0;
-    difficultyMultiplier = 1.05; // Slightly harder (was 1.0)
-    poopInterval = 0.55; // Slightly faster (was 0.6)
+    difficultyMultiplier = 1.1; // Harder start
+    poopInterval = 0.5; // Faster start
     lives = 3;
     heartTimer = 0;
     heartInterval = 20;
@@ -897,13 +897,14 @@ function saveHighScore() {
         db.ref('scores').push({
             name: name,
             score: score,
+            time: formatTime(gameTime),
             timestamp: timestamp
         });
     } catch (e) {
         console.warn("Firebase save failed (using local):", e);
         // Fallback to Local Storage
         const highScores = getHighScores();
-        const newScore = { name, score };
+        const newScore = { name, score, time: formatTime(gameTime) };
         highScores.push(newScore);
         highScores.sort((a, b) => b.score - a.score);
         highScores.splice(10);
@@ -920,7 +921,7 @@ function renderLeaderboard(localData = null) {
     if (localData) {
         localData.forEach((scoreData, index) => {
             const li = document.createElement('li');
-            li.innerHTML = `<span>${index + 1}. ${scoreData.name}</span> <span>${scoreData.score}</span>`;
+            li.innerHTML = `<span>${index + 1}. ${scoreData.name}</span> <span>${scoreData.score} (${scoreData.time || ''})</span>`;
             highScoreList.appendChild(li);
         });
         return;
@@ -939,7 +940,7 @@ function renderLeaderboard(localData = null) {
             highScoreList.innerHTML = '';
             scores.forEach((scoreData, index) => {
                 const li = document.createElement('li');
-                li.innerHTML = `<span>${index + 1}. ${scoreData.name}</span> <span>${scoreData.score}</span>`;
+                li.innerHTML = `<span>${index + 1}. ${scoreData.name}</span> <span>${scoreData.score} (${scoreData.time || ''})</span>`;
                 highScoreList.appendChild(li);
             });
         });
@@ -948,7 +949,7 @@ function renderLeaderboard(localData = null) {
         const highScores = getHighScores();
         highScores.forEach((scoreData, index) => {
             const li = document.createElement('li');
-            li.innerHTML = `<span>${index + 1}. ${scoreData.name}</span> <span>${scoreData.score}</span>`;
+            li.innerHTML = `<span>${index + 1}. ${scoreData.name}</span> <span>${scoreData.score} (${scoreData.time || ''})</span>`;
             highScoreList.appendChild(li);
         });
     }

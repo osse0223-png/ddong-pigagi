@@ -107,6 +107,10 @@ p {
     margin-bottom: 40px;
 }
 
+#game-over-screen p {
+    margin: 5px 0;
+}
+
 button {
     font-family: 'Jua', sans-serif;
     font-size: 24px;
