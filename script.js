@@ -81,10 +81,11 @@ const player = {
     boostCooldown: 10000, // 10 seconds
     color: '#00d4ff',
     isInvulnerable: false,
-    invulnerabilityDuration: 2000, // 2 seconds
+    isShielded: false,
+    shieldDuration: 0,
 
     hit() {
-        if (this.isInvulnerable) return false;
+        if (this.isInvulnerable || this.isShielded) return false;
 
         this.isInvulnerable = true;
 
@@ -131,11 +132,34 @@ const player = {
         if (this.x + this.width > canvas.width) this.x = canvas.width - this.width;
         if (this.y < 0) this.y = 0;
         if (this.y + this.height > canvas.height) this.y = canvas.height - this.height;
+
+        // Shield Timer
+        if (this.isShielded) {
+            this.shieldDuration -= dt;
+            if (this.shieldDuration <= 0) {
+                this.isShielded = false;
+                this.shieldDuration = 0;
+            }
+        }
     },
 
     draw() {
         ctx.save();
         ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+
+        // Draw Shield
+        if (this.isShielded) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(0, 0, this.width, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 191, 255, 0.3)'; // Light blue transparent
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(0, 191, 255, 0.8)';
+            ctx.stroke();
+            ctx.restore();
+        }
+
         // Rotate -45 degrees to make the airplane point UP (since default emoji ✈️ points NE)
         ctx.rotate(-45 * Math.PI / 180);
         ctx.font = '36px Arial';
@@ -219,13 +243,17 @@ class GameItem {
         let emoji = '';
         if (this.type === 'BOMB') emoji = '💣';
         else if (this.type === 'CLOCK') emoji = '⌛';
+        else if (this.type === 'SHIELD') emoji = '🛡️';
 
         ctx.fillText(emoji, this.x + this.width / 2, this.y + this.height / 2);
 
         // Glow effect
-        ctx.strokeStyle = this.type === 'BOMB' ? 'orange' : 'cyan';
+        if (this.type === 'BOMB') ctx.strokeStyle = 'orange';
+        else if (this.type === 'CLOCK') ctx.strokeStyle = 'cyan';
+        else if (this.type === 'SHIELD') ctx.strokeStyle = 'dodgerblue';
+
         ctx.lineWidth = 2;
-        ctx.strokeRect(this.x, this.y, this.width, this.height);
+        // ctx.strokeRect(this.x, this.y, this.width, this.height); // Removed border as requested before
 
         ctx.restore();
     }
@@ -501,12 +529,17 @@ function update(timestamp) {
             }
         }
 
-        // Spawn Items (Bomb/Clock)
+        // Spawn Items (Bomb/Clock/Shield)
         itemTimer += dt;
         if (itemTimer > itemInterval) {
             itemTimer = 0;
-            // Randomly choose Bomb or Clock
-            const type = Math.random() < 0.5 ? 'BOMB' : 'CLOCK';
+            // Randomly choose Bomb, Clock, or Shield
+            const rand = Math.random();
+            let type = 'BOMB';
+            if (rand < 0.33) type = 'BOMB';
+            else if (rand < 0.66) type = 'CLOCK';
+            else type = 'SHIELD';
+
             items.push(new GameItem(type));
             // Randomize interval (More frequent: 5 to 15 seconds)
             itemInterval = 5 + Math.random() * 10;
@@ -541,6 +574,10 @@ function update(timestamp) {
                     // Visual feedback (Flash cyan)
                     gameContainer.style.border = "5px solid cyan";
                     setTimeout(() => gameContainer.style.border = "none", 500);
+                } else if (item.type === 'SHIELD') {
+                    // Shield Effect: Invincibility for 3 seconds
+                    player.isShielded = true;
+                    player.shieldDuration = 3.0;
                 }
                 items.splice(i, 1);
             } else if (item.y > canvas.height) {
