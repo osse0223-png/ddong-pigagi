@@ -289,9 +289,18 @@ class Poop {
             }
         }
 
-        // Calculate Target Point (somewhere in the central area of screen)
-        const targetX = Math.random() * (canvas.width * 0.8) + (canvas.width * 0.1);
-        const targetY = Math.random() * (canvas.height * 0.8) + (canvas.height * 0.1);
+        // Calculate Target Point
+        let targetX, targetY;
+
+        if (this.isRed) {
+            // Target the player directly!
+            targetX = player.x + player.width / 2;
+            targetY = player.y + player.height / 2;
+        } else {
+            // Random point in central area
+            targetX = Math.random() * (canvas.width * 0.8) + (canvas.width * 0.1);
+            targetY = Math.random() * (canvas.height * 0.8) + (canvas.height * 0.1);
+        }
 
         // Calculate Angle and Velocity
         const angle = Math.atan2(targetY - this.y, targetX - this.x);
