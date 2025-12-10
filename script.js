@@ -479,24 +479,22 @@ window.addEventListener('keyup', e => {
 
 // Touch Handling for Mobile
 let lastTouchEnd = 0;
+let lastTouchX = null;
+let lastTouchY = null;
+
 canvas.addEventListener('touchstart', e => {
     e.preventDefault();
     const touch = e.touches[0];
     const rect = canvas.getBoundingClientRect();
-    const touchX = touch.clientX - rect.left;
-    const touchY = touch.clientY - rect.top;
 
-    // Move player to touch position immediately
-    player.x = touchX - player.width / 2;
-    player.y = touchY - player.height / 2;
+    // Initialize last touch position
+    lastTouchX = touch.clientX - rect.left;
+    lastTouchY = touch.clientY - rect.top;
 
     // Double Tap for Boost
     const now = Date.now();
     if (now - lastTouchEnd <= 300) {
         player.activateBoost();
-        // Auto-release boost after 1s matches desktop logic, 
-        // but for mobile maybe we want it to stop when finger lifts? 
-        // Let's keep it simple: Activation is instant. Deactivation happens naturally via timer or we can add touchend logic.
     }
     lastTouchEnd = now;
 }, { passive: false });
@@ -505,19 +503,36 @@ canvas.addEventListener('touchmove', e => {
     e.preventDefault(); // Prevent scrolling
     const touch = e.touches[0];
     const rect = canvas.getBoundingClientRect();
-    const touchX = touch.clientX - rect.left;
-    const touchY = touch.clientY - rect.top;
+    const currentTouchX = touch.clientX - rect.left;
+    const currentTouchY = touch.clientY - rect.top;
 
-    // Direct 1:1 Movement
-    player.x = touchX - player.width / 2;
-    player.y = touchY - player.height / 2;
+    if (lastTouchX !== null && lastTouchY !== null) {
+        // Calculate delta
+        const dx = currentTouchX - lastTouchX;
+        const dy = currentTouchY - lastTouchY;
 
-    // Clamp
-    if (player.x < 0) player.x = 0;
-    if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
-    if (player.y < 0) player.y = 0;
-    if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
+        // Apply relative movement
+        player.x += dx;
+        player.y += dy;
+
+        // Clamp
+        if (player.x < 0) player.x = 0;
+        if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+        if (player.y < 0) player.y = 0;
+        if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
+    }
+
+    // Update last touch position
+    lastTouchX = currentTouchX;
+    lastTouchY = currentTouchY;
 }, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+    player.deactivateBoost();
+    // Reset touch tracking
+    lastTouchX = null;
+    lastTouchY = null;
+});
 
 canvas.addEventListener('touchend', e => {
     // If we want boost to stop on lift, we can call deactivateBoost here
