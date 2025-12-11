@@ -1,7 +1,21 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Firebase 설정
+// Game State
+let gameState = 'START'; // START, PLAYING, GAMEOVER
+let score = 0;
+let animationId;
+let lastTime = 0;
+let difficultyMultiplier = 1.1;
+let lives = 3;
+// let isPinkMode = false; // Removed in favor of cyclic Hue Rotate
+const gameContainer = document.querySelector('.game-container');
+let scoreTimer = 0;
+let isBossMode = false;
+let bossModePlayed = false; // Track if boss mode has been completed
+let bossModeMissileInterval = 1; // Missiles spawn every 1 second during boss mode (increased frequency)
+
+// Firebase Configuration
 const firebaseConfig = {
     apiKey: "AIzaSyAlUqUM1jum8HuhlJj6gF_NiXpEMr4D1Qk",
     authDomain: "ddong-6379a.firebaseapp.com",
@@ -12,14 +26,11 @@ const firebaseConfig = {
     appId: ""
 };
 
-let functions = null;  // Cloud Functions 핸들러
-
-// Initialize Firebase
+// Initialize Firebase (Try/Catch to avoid error before user configures)
 try {
     firebase.initializeApp(firebaseConfig);
-    functions = firebase.functions();
 } catch (e) {
-    console.warn("Firebase not configured yet.", e);
+    console.warn("Firebase not configured yet.");
 }
 
 // Resize Canvas
@@ -1048,37 +1059,22 @@ function getHighScores() {
     return scores ? JSON.parse(scores) : [];
 }
 
-
-// ★ 서버 검증 구조용 saveHighScore
-async function saveHighScore() {
+function saveHighScore() {
     const name = nameInput.value.trim() || '익명';
     const timestamp = Date.now();
 
-    const payload = {
-        name,
-        score,
-        gameTime: Math.floor(gameTime),  // 초 단위 플레이 시간
-        endedAt: timestamp
-    };
-
+    // Try Firebase First
     try {
-        if (!functions) {
-            throw new Error("Firebase Functions not initialized");
-        }
-
-        // Cloud Function 호출
-        const submitScore = functions.httpsCallable('submitScore');
-        await submitScore(payload);   // 서버 검증 + DB 저장
-
-        console.log('Score submitted to server');
-
-        // 서버 저장 성공 시 랭킹 다시 불러오기
-        renderLeaderboard();
-
+        const db = firebase.database();
+        db.ref('scores').push({
+            name: name,
+            score: score,
+            time: formatTime(gameTime),
+            timestamp: timestamp
+        });
     } catch (e) {
-        console.warn("Firebase submit failed (using local):", e);
-
-        // 오프라인/에러 시 → 로컬 스토리지에만 저장
+        console.warn("Firebase save failed (using local):", e);
+        // Fallback to Local Storage
         const highScores = getHighScores();
         const newScore = { name, score, time: formatTime(gameTime) };
         highScores.push(newScore);
@@ -1091,49 +1087,43 @@ async function saveHighScore() {
     nameInputContainer.style.display = 'none';
 }
 
-
 function renderLeaderboard(localData = null) {
     highScoreList.innerHTML = '';
 
-    // 공통 렌더 함수
-    const renderList = (list) => {
-        highScoreList.innerHTML = '';
-        list.forEach((scoreData, index) => {
+    if (localData) {
+        localData.forEach((scoreData, index) => {
             const li = document.createElement('li');
-            li.innerHTML =
-                `<span>${index + 1}. ${scoreData.name || '익명'}</span>` +
-                ` <span>${scoreData.score} (${scoreData.time || ''})</span>`;
+            li.innerHTML = `<span>${index + 1}. ${scoreData.name}</span> <span>${scoreData.score} (${scoreData.time || ''})</span>`;
             highScoreList.appendChild(li);
         });
-    };
-
-    // 로컬 데이터가 이미 넘어온 경우 (오프라인 fallback 등)
-    if (localData) {
-        renderList(localData);
         return;
     }
 
-    // Firebase Realtime Database에서 상위 10위 가져오기
+    // Try Listen to Firebase
     try {
         const db = firebase.database();
-        db.ref('scores')
-            .orderByChild('score')
-            .limitToLast(10)
-            .on('value', (snapshot) => {
-                const scores = [];
-                snapshot.forEach((child) => {
-                    scores.push(child.val());
-                });
-
-                // score 높은 순으로 내림차순
-                scores.reverse();
-                renderList(scores);
+        db.ref('scores').orderByChild('score').limitToLast(10).on('value', (snapshot) => {
+            const scores = [];
+            snapshot.forEach((child) => {
+                scores.push(child.val());
             });
-    } catch (e) {
-        console.warn("Firebase leaderboard load failed, using local:", e);
+            scores.reverse();
 
+            highScoreList.innerHTML = '';
+            scores.forEach((scoreData, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span>${index + 1}. ${scoreData.name}</span> <span>${scoreData.score} (${scoreData.time || ''})</span>`;
+                highScoreList.appendChild(li);
+            });
+        });
+    } catch (e) {
+        // Fallback
         const highScores = getHighScores();
-        renderList(highScores);
+        highScores.forEach((scoreData, index) => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span>${index + 1}. ${scoreData.name}</span> <span>${scoreData.score} (${scoreData.time || ''})</span>`;
+            highScoreList.appendChild(li);
+        });
     }
 }
 
