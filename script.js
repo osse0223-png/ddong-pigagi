@@ -502,6 +502,79 @@ class Poop {
     }
 }
 
+// Missiles
+let missiles = [];
+let missileTimer = 0;
+let missileInterval = 10; // Start at 10 seconds
+
+class Missile {
+    constructor() {
+        this.width = 30;
+        this.height = 30;
+        this.speed = 140; // Reduced speed (was 160)
+        this.lifeTime = 10.0; // Dies after 10 seconds if it doesn't hit
+
+        // Random Side Spawning
+        const side = Math.floor(Math.random() * 4);
+        if (side === 0) { // Top
+            this.x = Math.random() * (canvas.width - this.width);
+            this.y = -this.height;
+        } else if (side === 1) { // Right
+            this.x = canvas.width;
+            this.y = Math.random() * (canvas.height - this.height);
+        } else if (side === 2) { // Bottom
+            this.x = Math.random() * (canvas.width - this.width);
+            this.y = canvas.height;
+        } else { // Left
+            this.x = -this.width;
+            this.y = Math.random() * (canvas.height - this.height);
+        }
+
+        this.vx = 0;
+        this.vy = 0;
+    }
+
+    update(dt) {
+        // Homing Logic
+        const targetX = player.x + player.width / 2;
+        const targetY = player.y + player.height / 2;
+        const myX = this.x + this.width / 2;
+        const myY = this.y + this.height / 2;
+
+        const dx = targetX - myX;
+        const dy = targetY - myY;
+        const angle = Math.atan2(dy, dx);
+
+        // Constant tracking velocity
+        this.vx = Math.cos(angle) * this.speed;
+        this.vy = Math.sin(angle) * this.speed;
+
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+
+        this.lifeTime -= dt;
+        return this.lifeTime <= 0;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+
+        // Calculate angle for rotation
+        const angle = Math.atan2(this.vy, this.vx);
+        // Rocket emoji 🚀 usually points NE (-45deg). 
+        // We rotate it to align with velocity.
+        // Visual adjustment: Rotate +45deg (PI/4) to make it point "Right" relative to its default NE orientation.
+        ctx.rotate(angle + Math.PI / 4);
+
+        ctx.font = '30px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🚀', 0, 0);
+        ctx.restore();
+    }
+}
+
 // Input Handling
 const keys = {
     ArrowLeft: false,
@@ -811,6 +884,43 @@ function update(timestamp) {
             }
         }
 
+        // Spawn Missiles (Only after 500 points)
+        if (score >= 500) {
+            missileTimer += dt;
+            if (missileTimer > missileInterval) {
+                missileTimer = 0;
+                missiles.push(new Missile());
+                // Increase frequency slightly
+                if (missileInterval > 3) missileInterval -= 0.2;
+            }
+        }
+
+        // Update & Draw Missiles
+        for (let i = missiles.length - 1; i >= 0; i--) {
+            const missile = missiles[i];
+            const shouldRemove = missile.update(dt);
+            missile.draw();
+
+            // Collision with Player
+            if (checkCollision(player, missile)) {
+                if (player.hit()) {
+                    lives--;
+                    updateLivesUI();
+                    missiles.splice(i, 1);
+                    if (lives <= 0) {
+                        endGame();
+                        // Exit loop early since game is over (optional but safer)
+                    }
+                    continue;
+                }
+            }
+
+            // Remove if lifetime expired
+            if (shouldRemove) {
+                missiles.splice(i, 1);
+            }
+        }
+
         // Time-based Scoring & Background Cycle
         scoreTimer += dt;
         if (scoreTimer > 1.0) { // Every 1 second
@@ -836,6 +946,9 @@ function startGame() {
     hearts = [];
     warnings = [];
     items = [];
+    missiles = [];
+    missileTimer = 0;
+    missileInterval = 10;
     timeScale = 1.0;
     difficultyMultiplier = 1.1; // Harder start
     poopInterval = 0.5; // Faster start
