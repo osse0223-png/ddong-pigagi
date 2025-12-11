@@ -908,7 +908,7 @@ function update(timestamp) {
             setTimeout(() => {
                 bossModeNotification.classList.remove('active');
             }, 3000);
-        } else if (score >= 1500 && isBossMode) {
+        } else if (score >= 1100 && isBossMode) {
             // Exit Boss Mode
             isBossMode = false;
             bossModePlayed = true; // Mark boss mode as completed
