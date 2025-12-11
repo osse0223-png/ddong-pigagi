@@ -11,6 +11,9 @@ let lives = 3;
 // let isPinkMode = false; // Removed in favor of cyclic Hue Rotate
 const gameContainer = document.querySelector('.game-container');
 let scoreTimer = 0;
+let isBossMode = false;
+let bossModePlayed = false; // Track if boss mode has been completed
+let bossModeMissileInterval = 1; // Missiles spawn every 1 second during boss mode (increased frequency)
 
 // Firebase Configuration
 const firebaseConfig = {
@@ -47,6 +50,7 @@ const startBtn = document.getElementById('start-btn');
 const restartBtn = document.getElementById('restart-btn');
 const boostStatusElement = document.getElementById('boost-status');
 const livesDisplayElement = document.getElementById('lives-display');
+const bossModeNotification = document.getElementById('boss-mode-notification');
 const heartImage = new Image();
 heartImage.src = 'heart.png';
 
@@ -508,11 +512,12 @@ let missileTimer = 0;
 let missileInterval = 10; // Start at 10 seconds
 
 class Missile {
-    constructor() {
+    constructor(isBossModeActive = false) {
         this.width = 30;
         this.height = 30;
-        this.speed = 140; // Reduced speed (was 160)
-        this.lifeTime = 10.0; // Dies after 10 seconds if it doesn't hit
+        // Boss mode missiles are much faster
+        this.speed = isBossModeActive ? 220 : 130;
+        this.lifeTime = 15.0; // Dies after 15 seconds if it doesn't hit
 
         // Random Side Spawning
         const side = Math.floor(Math.random() * 4);
@@ -715,41 +720,43 @@ function update(timestamp) {
             }
         }
 
-        // Spawn Poops
-        poopTimer += dt;
-        if (poopTimer > poopInterval) {
-            poopTimer = 0;
+        // Spawn Poops (Skip during Boss Mode)
+        if (!isBossMode) {
+            poopTimer += dt;
+            if (poopTimer > poopInterval) {
+                poopTimer = 0;
 
-            // Check for Red Poop Chance First (5% chance)
-            if (Math.random() < 0.05) {
-                // Determine spawn position specifically for warning
-                const side = Math.floor(Math.random() * 4);
-                let wx, wy;
-                const size = 30; // approx size
+                // Check for Red Poop Chance First (5% chance)
+                if (Math.random() < 0.05) {
+                    // Determine spawn position specifically for warning
+                    const side = Math.floor(Math.random() * 4);
+                    let wx, wy;
+                    const size = 30; // approx size
 
-                if (side === 0) { wx = Math.random() * canvas.width; wy = -size; }
-                else if (side === 1) { wx = canvas.width; wy = Math.random() * canvas.height; }
-                else if (side === 2) { wx = Math.random() * canvas.width; wy = canvas.height; }
-                else { wx = -size; wy = Math.random() * canvas.height; }
+                    if (side === 0) { wx = Math.random() * canvas.width; wy = -size; }
+                    else if (side === 1) { wx = canvas.width; wy = Math.random() * canvas.height; }
+                    else if (side === 2) { wx = Math.random() * canvas.width; wy = canvas.height; }
+                    else { wx = -size; wy = Math.random() * canvas.height; }
 
-                // Capture player position NOW (for targeting)
-                const targetX = player.x + player.width / 2;
-                const targetY = player.y + player.height / 2;
+                    // Capture player position NOW (for targeting)
+                    const targetX = player.x + player.width / 2;
+                    const targetY = player.y + player.height / 2;
 
-                // Create Warning Instead
-                warnings.push(new WarningIndicator(wx, wy, targetX, targetY, () => {
-                    // Spawn actual red poop at this location when done, targeting the SNAPSHOTTED position
-                    poops.push(new Poop(true, wx, wy, targetX, targetY));
-                }));
-            } else {
-                // Regular Poop
-                poops.push(new Poop(false));
+                    // Create Warning Instead
+                    warnings.push(new WarningIndicator(wx, wy, targetX, targetY, () => {
+                        // Spawn actual red poop at this location when done, targeting the SNAPSHOTTED position
+                        poops.push(new Poop(true, wx, wy, targetX, targetY));
+                    }));
+                } else {
+                    // Regular Poop
+                    poops.push(new Poop(false));
+                }
+
+                // Increase difficulty
+                difficultyMultiplier += 0.004; // Slightly harder increase
+                // Cap interval at a minimum to prevent unplayable state
+                if (poopInterval > 0.1) poopInterval -= 0.001;
             }
-
-            // Increase difficulty
-            difficultyMultiplier += 0.004; // Slightly harder increase
-            // Cap interval at a minimum to prevent unplayable state
-            if (poopInterval > 0.1) poopInterval -= 0.001;
         }
 
         // Spawn Hearts
@@ -884,12 +891,62 @@ function update(timestamp) {
             }
         }
 
-        // Spawn Missiles (Only after 500 points)
-        if (score >= 500) {
+        // Boss Mode Transitions
+        if (score >= 1000 && !bossModePlayed && !isBossMode) {
+            // Enter Boss Mode
+            isBossMode = true;
+            missileTimer = 0;
+            // Visual feedback
+            gameContainer.style.border = "10px solid red";
+            gameContainer.style.boxShadow = "0 0 30px red";
+
+            // Show Boss Mode Notification
+            bossModeNotification.innerText = "🔥 BOSS MODE! 🔥";
+            bossModeNotification.classList.add('active');
+
+            // Hide notification after 3 seconds
+            setTimeout(() => {
+                bossModeNotification.classList.remove('active');
+            }, 3000);
+        } else if (score >= 1500 && isBossMode) {
+            // Exit Boss Mode
+            isBossMode = false;
+            bossModePlayed = true; // Mark boss mode as completed
+            missileTimer = 0;
+            // Visual feedback
+            gameContainer.style.border = "10px solid gold";
+            gameContainer.style.boxShadow = "0 0 30px gold";
+
+            // Show Victory Notification
+            bossModeNotification.innerText = "⭐ BOSS DEFEATED! ⭐";
+            bossModeNotification.style.color = "#ffd700";
+            bossModeNotification.style.textShadow = "0 0 20px #ffd700, 0 0 40px #ffd700, 0 0 60px #ffd700";
+            bossModeNotification.classList.add('active');
+
+            setTimeout(() => {
+                gameContainer.style.border = "none";
+                gameContainer.style.boxShadow = "none";
+                bossModeNotification.classList.remove('active');
+                // Reset color for next boss mode
+                bossModeNotification.style.color = "#ff0000";
+                bossModeNotification.style.textShadow = "0 0 20px #ff0000, 0 0 40px #ff0000, 0 0 60px #ff0000";
+            }, 2000);
+        }
+
+        // Spawn Missiles
+        if (isBossMode) {
+            // Boss Mode: Spawn missiles frequently
+            missileTimer += dt;
+            if (missileTimer > bossModeMissileInterval) {
+                missileTimer = 0;
+                missiles.push(new Missile(true)); // Pass true for boss mode
+            }
+        } else if (score >= 500) {
+            // Normal Mode: Spawn missiles after 500 points
             missileTimer += dt;
             if (missileTimer > missileInterval) {
                 missileTimer = 0;
-                missiles.push(new Missile());
+                missiles.push(new Missile(false)); // Pass false for normal mode
                 // Increase frequency slightly
                 if (missileInterval > 3) missileInterval -= 0.2;
             }
@@ -949,6 +1006,8 @@ function startGame() {
     missiles = [];
     missileTimer = 0;
     missileInterval = 10;
+    isBossMode = false;
+    bossModePlayed = false; // Reset boss mode completion flag
     timeScale = 1.0;
     difficultyMultiplier = 1.1; // Harder start
     poopInterval = 0.5; // Faster start
