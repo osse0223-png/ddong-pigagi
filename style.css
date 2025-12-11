@@ -28,6 +28,11 @@ body {
     overflow: hidden;
     background: url('sky_bg.png') no-repeat center center;
     background-size: cover;
+    transition: background-image 1s ease-in-out, filter 1s ease-in-out;
+}
+
+.game-container.pink-mode {
+    background-image: url('pink_sky_bg.png') !important;
 }
 
 canvas {
@@ -102,6 +107,14 @@ h1 {
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 
+/* 시작 화면 전용 제목 튜닝 */
+#start-screen h1 {
+    margin-bottom: 12px;
+    /* 제목과 안내문 사이 조금 더 타이트 */
+    font-size: 44px;
+    /* 살짝 줄여서 전체 레이아웃 안정감 */
+}
+
 p {
     font-size: 24px;
     margin-bottom: 40px;
@@ -109,6 +122,28 @@ p {
 
 #game-over-screen p {
     margin: 5px 0;
+}
+
+/* ▶ 시작 화면 안내 문구 전용 스타일 */
+#start-screen p {
+    margin: 4px 0;
+    /* 두 줄 사이 간격 4px */
+    line-height: 1.2;
+    /* 줄 간격 살짝 촘촘하게 */
+    font-size: 20px;
+    text-align: center;
+}
+
+/* 첫 번째 줄: 화살표 이동 안내 (조금 더 강조) */
+#start-screen p:first-of-type {
+    font-size: 22px;
+    color: #ffffff;
+}
+
+/* 두 번째 줄: 공지 문구 (조금 더 작고 연한 느낌) */
+#start-screen p:nth-of-type(2) {
+    font-size: 18px;
+    color: #ffdfdf;
 }
 
 button {
@@ -202,14 +237,6 @@ button:active {
         transform: translateY(-50px);
         opacity: 0;
     }
-}
-
-.game-container {
-    transition: background-image 1s ease-in-out, filter 1s ease-in-out;
-}
-
-.game-container.pink-mode {
-    background-image: url('pink_sky_bg.png') !important;
 }
 
 #name-input-container {
